@@ -1,4 +1,4 @@
-name: Cloud PC + AnyDesk + Opera GX (Forced Feature Active)
+name: Cloud PC + AnyDesk + Opera GX (Welcome Bypass & Rewards Auto-Active)
 
 on:
   workflow_dispatch:
@@ -70,14 +70,18 @@ jobs:
 
       - name: Pre-Inject User Profiles & Install Opera GX
         run: |
-          Write-Host "Creating local browser preferences to bypass welcome pages..."
-          $appDataFolder = "$env:APPDATA\Opera Software\Opera GX Stable"
-          if (-not (Test-Path $appDataFolder)) { New-Item -ItemType Directory -Path $appDataFolder -Force | Out-Null }
+          Write-Host "Writing multi-directory preferences to completely bypass welcome pages..."
+          $paths = @(
+              "$env:APPDATA\Opera Software\Opera GX Stable",
+              "$env:LOCALAPPDATA\Opera Software\Opera GX Stable"
+          )
           
-          # Injects configuration states directly to indicate the user onboarding flow is completed
-          $prefFile = "$appDataFolder\Preferences"
           $prefData = '{"gxa":{"rewards_activated":true,"sidebar_icon_enabled":true},"browser":{"has_seen_welcome_page":true,"welcome_page_onboarding_done":true}}'
-          Set-Content -Path $prefFile -Value $prefData -Force
+          
+          foreach ($folder in $paths) {
+              if (-not (Test-Path $folder)) { New-Item -ItemType Directory -Path $folder -Force | Out-Null }
+              Set-Content -Path "$folder\Preferences" -Value $prefData -Force
+          }
           
           Write-Host "Fetching stable installer package..."
           $url = "https://net.geo.opera.com/opera_gx/stable/windows?utm_source=inf&utm_medium=gx"
@@ -93,15 +97,15 @@ jobs:
               Move-Item -Path "$userDesktop\Opera GX.lnk" -Destination $publicDesktop -Force -ErrorAction SilentlyContinue
           }
           
-          Write-Host "Configuring explicit launch options to hold open the target sidebar element..."
+          Write-Host "Configuring launch arguments to force gift icon activation..."
           $operaExe = "$env:ProgramFiles\Opera GX\opera.exe"
           if (-not (Test-Path $operaExe)) { $operaExe = "$env:ProgramFiles (x86)\Opera GX\opera.exe" }
           
           $WshShell = New-Object -ComObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$publicDesktop\Opera GX Browser.lnk")
           $Shortcut.TargetPath = $operaExe
-          # Direct entry command flags forcing the rewards panel layout components to mount active
-          $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --enable-features=GXRewards,GXRewardsSidebarItem"
+          # Combines the partner tracking id bypass with explicit runtime feature switches
+          $Shortcut.Arguments = "--partner-id=forsaken --enable-features=GXRewards,GXRewardsSidebarItem --with-feature:gx-rewards=1"
           $Shortcut.Save()
 
       - name: Fetch and Display AnyDesk Connection Address
