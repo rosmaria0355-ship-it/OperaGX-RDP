@@ -1,4 +1,4 @@
-name: Cloud PC + RustDesk + Opera GX (Native ID Extraction)
+name: Cloud PC + RustDesk + Opera GX (Silent ID Capture)
 
 on:
   workflow_dispatch:
@@ -40,9 +40,9 @@ jobs:
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           Invoke-WebRequest -Uri $url -OutFile $dst -UserAgent "Mozilla/5.0"
           
-          Write-Host "Executing silent installation sequence..."
-          # Force a proper system install directory deployment
-          Start-Process $dst -ArgumentList "--install" -Wait
+          Write-Host "Executing silent compilation and physical system deployment..."
+          # Fix: Using --silent-install prevents the wizard GUI from freezing the runner
+          Start-Process $dst -ArgumentList "--silent-install" -Wait
           Start-Sleep -Seconds 10
           Remove-Item $dst -ErrorAction SilentlyContinue
 
@@ -54,7 +54,7 @@ jobs:
           if (Test-Path $rdExe) {
               Start-Process -FilePath $rdExe -ArgumentList "--password", "${{ env.RUSTDESK_PASS }}" -Wait
           } else {
-              Write-Error "CRITICAL: RustDesk binary path not found!"
+              Write-Error "CRITICAL: RustDesk binary path not found after automated deployment!"
               exit 1
           }
           
@@ -100,13 +100,13 @@ jobs:
           $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --no-first-run --enable-features=GXRewards,GXRewardsSidebarItem --with-feature:gx-rewards=1"
           $Shortcut.Save()
 
-      - name: Fetch and Display RustDesk Connection Credentials
+      - name: Query Engine ID and Generate Output Logs
         run: |
           Write-Host "Querying RustDesk core service via CLI endpoint..."
           $rdExe = "C:\Program Files\RustDesk\rustdesk.exe"
           $deviceId = "Not Found"
           
-          # Poll the internal CLI helper to get the generated ID directly
+          # Poll the hidden internal CLI helper to grab the generated ID directly
           for ($i = 1; $i -le 15; $i++) {
               $idOutput = & $rdExe --get-id 2>$null
               if ($idOutput -match '(\d+)') {
