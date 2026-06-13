@@ -1,4 +1,4 @@
-name: Cloud PC + Web Browser Link + Opera GX (Final Setup)
+name: Cloud PC + Web Browser Link + Opera GX (UltraVNC Fix)
 
 on:
   workflow_dispatch:
@@ -28,27 +28,46 @@ jobs:
       - name: Force Full HD Resolution
         run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
 
-      - name: Install and Configure TightVNC Server (Verified Hex Override)
+      - name: Install and Configure UltraVNC Server
         run: |
-          Invoke-WebRequest -Uri "https://www.tightvnc.com/download/2.8.84/tightvnc-2.8.84-gpl-setup-64bit.msi" -OutFile "$env:TEMP\tightvnc.msi"
-          Start-Process msiexec.exe -ArgumentList "/i `"$env:TEMP\tightvnc.msi`" /quiet /qn SERVER_REGISTER_AS_SERVICE=1" -Wait
+          # Install UltraVNC cleanly using Chocolatey
+          choco install ultravnc -y --no-progress
           
-          Start-Sleep -Seconds 5
+          # Target default UltraVNC installation paths
+          $uvncDir = "C:\Program Files\uvnc bvba\UltraVNC"
+          $iniPath = "$uvncDir\ultravnc.ini"
           
-          $vncPath = "HKLM:\SOFTWARE\TightVNC\Server"
-          if (Test-Path $vncPath) {
-              Set-ItemProperty -Path $vncPath -Name "AuthRequired" -Value 1 -Type DWord
-              Set-ItemProperty -Path $vncPath -Name "AuthType" -Value 1 -Type DWord
-              Set-ItemProperty -Path $vncPath -Name "AllowLoopback" -Value 1 -Type DWord
-              Set-ItemProperty -Path $vncPath -Name "AcceptLocalConnections" -Value 1 -Type DWord
-              
-              # This is the exact obfuscated key TightVNC requires for the literal word "password"
-              [byte[]]$passHex = 0x5D, 0x4B, 0x1A, 0x24, 0xB6, 0x2A, 0x6D, 0xEB
-              Set-ItemProperty -Path $vncPath -Name "Password" -Value $passHex -Type Binary
-              Set-ItemProperty -Path $vncPath -Name "ControlPassword" -Value $passHex -Type Binary
-          }
+          # Create an ultra-compatible INI configuration file
+          # 'passwd=0x5D4B1A24B62A6DEB' is the pre-encrypted hex block for the word 'password'
+          $iniContent = @"
+          [Permissions]
+          [UltraVNC]
+          passwd=0x5D4B1A24B62A6DEB
+          passwd2=0x5D4B1A24B62A6DEB
+          CheckServerPort=1
+          PortNumber=5900
+          HttpPortNumber=5800
+          AllowLoopback=1
+          AcceptKeepAlive=1
+          LoopbackOnly=0
+          QuerySetting=2
+          QueryTimeout=10
+          QueryAccept=0
+          QueryIfNoLogon=1
+          InputsEnabled=1
+          BlankMonitorEnabled=0
+          [Server]
+          Connection=1
+          "@
           
-          Restart-Service -Name "TightVNC Server" -Force
+          # Force push configuration settings headlessly
+          Out-File -FilePath $iniPath -InputObject $iniContent -Encoding ascii -Force
+          
+          # Register and force launch the application service
+          Start-Process "$uvncDir\winvnc.exe" -ArgumentList "-install" -Wait
+          Start-Process "$uvncDir\winvnc.exe" -ArgumentList "-startservice" -Wait
+          
+          Write-Host "UltraVNC Server successfully initialized."
 
       - name: Download & Force Consumer Build of Opera GX
         run: |
