@@ -110,11 +110,12 @@ jobs:
           ngrok config add-authtoken "${{ inputs.ngrok_token }}"
           
           Write-Host "Spawning background port forward tunnel over RDP port 3389..."
-          # Handled sequentially in a single step context block to bypass exit cleanup
-          Start-Process -FilePath "ngrok" -ArgumentList "tcp", "3389", "--log=stdout" -NoNewWindow
+          # Fix: Explicitly passing arguments as an array keeps the process detached and active
+          $NgrokArgs = @("tcp", "3389", "--log=stdout")
+          Start-Process -FilePath "ngrok" -ArgumentList $NgrokArgs -NoNewWindow -PassThru
           
           Write-Host "Waiting for tunnel layer to stabilize..."
-          Start-Sleep -Seconds 12
+          Start-Sleep -Seconds 15
           
           Write-Host "Querying secure endpoint matrix..."
           $Response = Invoke-WebRequest -Uri "http://127.0.0.1:4040/api/tunnels" -UseBasicParsing
